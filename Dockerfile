@@ -12,7 +12,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 
 FROM php:8.4-fpm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    nginx supervisor \
+    nginx supervisor libonig-dev \
     && docker-php-ext-install pdo_mysql mbstring opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
