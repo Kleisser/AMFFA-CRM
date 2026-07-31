@@ -8,7 +8,7 @@ RUN npm run build
 FROM composer:latest AS vendor
 WORKDIR /build
 COPY backend/ .
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 FROM php:8.4-fpm
 RUN apt-get update && apt-get install -y \

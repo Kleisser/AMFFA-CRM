@@ -41,6 +41,6 @@ if [ "$TABLE_COUNT" -lt 2 ]; then
     php artisan db:seed --force
 fi
 
-php artisan optimize
+php artisan package:discover --ansi
 
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
