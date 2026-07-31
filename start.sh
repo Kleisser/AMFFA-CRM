@@ -23,11 +23,23 @@ if [ -n "$SESSION_DOMAIN" ]; then
     sed -i "s|^SESSION_DOMAIN=.*|SESSION_DOMAIN=$SESSION_DOMAIN|" .env
 fi
 
+DB_HOST_VAL="${MYSQLHOST:-${MYSQL_HOST:-${DATABASE_HOST:-127.0.0.1}}}"
+DB_PORT_VAL="${MYSQLPORT:-${MYSQL_PORT:-${DATABASE_PORT:-3306}}}"
+DB_DATABASE_VAL="${MYSQLDATABASE:-${MYSQL_DATABASE:-${DATABASE_NAME:-amffa_crm}}}"
+DB_USERNAME_VAL="${MYSQLUSER:-${MYSQL_USER:-${DATABASE_USER:-root}}}"
+DB_PASSWORD_VAL="${MYSQLPASSWORD:-${MYSQL_PASSWORD:-${DATABASE_PASSWORD:-}}}"
+
+sed -i "s|^DB_HOST=.*|DB_HOST=$DB_HOST_VAL|" .env
+sed -i "s|^DB_PORT=.*|DB_PORT=$DB_PORT_VAL|" .env
+sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$DB_DATABASE_VAL|" .env
+sed -i "s|^DB_USERNAME=.*|DB_USERNAME=$DB_USERNAME_VAL|" .env
+sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$DB_PASSWORD_VAL|" .env
+
 sed -i "s/listen 8080/listen ${PORT:-8080}/" /etc/nginx/sites-enabled/default
 
 echo "Waiting for MySQL..."
 for i in $(seq 1 30); do
-    if php -r "new PDO('mysql:host=${MYSQLHOST:-${MYSQL_HOST:-${DATABASE_HOST:-127.0.0.1}}};port=${MYSQLPORT:-${MYSQL_PORT:-${DATABASE_PORT:-3306}}}', '${MYSQLUSER:-${MYSQL_USER:-${DATABASE_USER:-root}}}', '${MYSQLPASSWORD:-${MYSQL_PASSWORD:-${DATABASE_PASSWORD:-}}}');" 2>/dev/null; then
+    if php -r "new PDO('mysql:host=${DB_HOST_VAL};port=${DB_PORT_VAL}', '${DB_USERNAME_VAL}', '${DB_PASSWORD_VAL}');" 2>/dev/null; then
         echo "MySQL ready!"
         break
     fi
