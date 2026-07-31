@@ -7,7 +7,7 @@ RUN npm run build
 
 FROM composer:latest AS vendor
 WORKDIR /build
-COPY backend/composer.json backend/composer.lock ./
+COPY backend/ .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 FROM php:8.4-fpm
