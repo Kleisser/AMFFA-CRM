@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f5f5f5;
+}
+
+.dark body {
+  background-color: #030712;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));

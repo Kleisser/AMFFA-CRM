@@ -1,0 +1,16 @@
+node_modules/
+vendor/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+*.log
+dist/
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/logs/*
+!backend/storage/framework/.gitkeep
+!backend/storage/logs/.gitkeep
+docker-compose.override.yml
+nginx/ssl/
