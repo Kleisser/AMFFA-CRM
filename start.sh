@@ -27,7 +27,7 @@ sed -i "s/listen 8080/listen ${PORT:-8080}/" /etc/nginx/sites-enabled/default
 
 echo "Waiting for MySQL..."
 for i in $(seq 1 30); do
-    if php -r "new PDO('mysql:host=${MYSQL_HOST:-${DATABASE_HOST:-127.0.0.1}};port=${MYSQL_PORT:-${DATABASE_PORT:-3306}}', '${MYSQL_USER:-${DATABASE_USER:-root}}', '${MYSQL_PASSWORD:-${DATABASE_PASSWORD:-}}');" 2>/dev/null; then
+    if php -r "new PDO('mysql:host=${MYSQLHOST:-${MYSQL_HOST:-${DATABASE_HOST:-127.0.0.1}}};port=${MYSQLPORT:-${MYSQL_PORT:-${DATABASE_PORT:-3306}}}', '${MYSQLUSER:-${MYSQL_USER:-${DATABASE_USER:-root}}}', '${MYSQLPASSWORD:-${MYSQL_PASSWORD:-${DATABASE_PASSWORD:-}}}');" 2>/dev/null; then
         echo "MySQL ready!"
         break
     fi
