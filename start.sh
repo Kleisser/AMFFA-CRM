@@ -47,11 +47,7 @@ for i in $(seq 1 30); do
 done
 
 php artisan migrate --force
-
-TABLE_COUNT=$(php -r "try { echo count(DB::select('SHOW TABLES')); } catch(\$e) { echo 0; }" 2>/dev/null || echo 0)
-if [ "$TABLE_COUNT" -lt 2 ]; then
-    php artisan db:seed --force
-fi
+php artisan db:seed --force
 
 php artisan package:discover --ansi
 

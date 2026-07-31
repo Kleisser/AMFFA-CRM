@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Contact;
 use App\Models\Pipeline;
 use App\Models\PipelineStage;
 use App\Models\User;
@@ -12,56 +13,66 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::create([
-            'name' => 'Admin AMFFA',
-            'email' => 'admin@amffa.com.ar',
-            'password' => Hash::make('Admin2026#'),
-            'role' => 'admin',
-            'is_active' => true,
-        ]);
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@amffa.com.ar'],
+            [
+                'name' => 'Admin AMFFA',
+                'password' => Hash::make('Admin2026#'),
+                'role' => 'admin',
+                'is_active' => true,
+            ]
+        );
 
-        $supervisor1 = User::create([
-            'name' => 'Supervisor 1',
-            'email' => 'supervisor@amffa.com.ar',
-            'password' => Hash::make('Supervisor2026#'),
-            'role' => 'supervisor',
-            'is_active' => true,
-        ]);
+        $supervisor1 = User::firstOrCreate(
+            ['email' => 'supervisor@amffa.com.ar'],
+            [
+                'name' => 'Supervisor 1',
+                'password' => Hash::make('Supervisor2026#'),
+                'role' => 'supervisor',
+                'is_active' => true,
+            ]
+        );
 
-        $supervisor2 = User::create([
-            'name' => 'Supervisor 2',
-            'email' => 'supervisor2@amffa.com.ar',
-            'password' => Hash::make('Supervisor2026#'),
-            'role' => 'supervisor',
-            'is_active' => true,
-        ]);
+        $supervisor2 = User::firstOrCreate(
+            ['email' => 'supervisor2@amffa.com.ar'],
+            [
+                'name' => 'Supervisor 2',
+                'password' => Hash::make('Supervisor2026#'),
+                'role' => 'supervisor',
+                'is_active' => true,
+            ]
+        );
 
-        $supervisor3 = User::create([
-            'name' => 'Supervisor 3',
-            'email' => 'supervisor3@amffa.com.ar',
-            'password' => Hash::make('Supervisor2026#'),
-            'role' => 'supervisor',
-            'is_active' => true,
-        ]);
+        $supervisor3 = User::firstOrCreate(
+            ['email' => 'supervisor3@amffa.com.ar'],
+            [
+                'name' => 'Supervisor 3',
+                'password' => Hash::make('Supervisor2026#'),
+                'role' => 'supervisor',
+                'is_active' => true,
+            ]
+        );
 
         $supList = [$supervisor1, $supervisor2, $supervisor3];
 
         foreach (range(1, 24) as $i) {
             $sup = $supList[intdiv($i - 1, 8)];
-            User::create([
-                'name' => "Asesor {$i}",
-                'email' => "asesor{$i}@amffa.com.ar",
-                'password' => Hash::make('Asesor2026#'),
-                'role' => 'seller',
-                'supervisor_id' => $sup->id,
-                'is_active' => true,
-            ]);
+            User::firstOrCreate(
+                ['email' => "asesor{$i}@amffa.com.ar"],
+                [
+                    'name' => "Asesor {$i}",
+                    'password' => Hash::make('Asesor2026#'),
+                    'role' => 'seller',
+                    'supervisor_id' => $sup->id,
+                    'is_active' => true,
+                ]
+            );
         }
 
-        $pipeline = Pipeline::create([
-            'name' => 'Pipeline Principal',
-            'created_by' => $admin->id,
-        ]);
+        $pipeline = Pipeline::firstOrCreate(
+            ['name' => 'Pipeline Principal'],
+            ['created_by' => $admin->id]
+        );
 
         $stages = [
             ['name' => 'Nuevo Lead', 'color' => '#3B82F6'],
@@ -73,14 +84,14 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($stages as $index => $stage) {
-            PipelineStage::create([
-                'pipeline_id' => $pipeline->id,
-                'name' => $stage['name'],
-                'order' => $index,
-                'color' => $stage['color'],
-            ]);
+            PipelineStage::firstOrCreate(
+                ['pipeline_id' => $pipeline->id, 'name' => $stage['name']],
+                ['order' => $index, 'color' => $stage['color']]
+            );
         }
 
-        $this->call(DemoDataSeeder::class);
+        if (Contact::count() === 0) {
+            $this->call(DemoDataSeeder::class);
+        }
     }
 }
