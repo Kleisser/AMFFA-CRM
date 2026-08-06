@@ -11,6 +11,7 @@ use App\Support\CierreMensual;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * KPI de altas y bajas mensuales consultando GECROS vía puente.
@@ -20,6 +21,26 @@ use Illuminate\Support\Facades\Cache;
 class AltasBajasController extends Controller
 {
     public function index(Request $request): JsonResponse
+    {
+        try {
+            return $this->handle($request);
+        } catch (\Throwable $e) {
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                throw $e;
+            }
+
+            Log::error('AltasBajas KPI error: ' . get_class($e) . ': ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'error' => get_class($e) . ': ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function handle(Request $request): JsonResponse
     {
         $user = $request->user();
         abort_unless($user->isAdmin() || $user->isSupervisor(), 403);
@@ -44,20 +65,25 @@ class AltasBajasController extends Controller
             if (!$bridgeConfigurado) {
                 $data = ['configured' => false, 'altas' => [], 'bajas' => []];
             } else {
-                $data = Cache::remember(
-                    'gecros.altas_bajas.' . $cierre['desde'] . '.' . $cierre['hasta'],
-                    now()->addHour(),
-                    function () use ($service, $cierre) {
-                        $datos = $service->getAltasBajas($cierre['desde'], $cierre['hasta']);
+                try {
+                    $data = Cache::remember(
+                        'gecros.altas_bajas.' . $cierre['desde'] . '.' . $cierre['hasta'],
+                        now()->addHour(),
+                        function () use ($service, $cierre) {
+                            $datos = $service->getAltasBajas($cierre['desde'], $cierre['hasta']);
 
-                        // No cachear fallos: se reintentará en la próxima petición.
-                        if (!empty($datos['error'])) {
-                            return ['configured' => true, 'altas' => [], 'bajas' => []];
+                            // No cachear fallos: se reintentará en la próxima petición.
+                            if (!empty($datos['error'])) {
+                                return ['configured' => true, 'altas' => [], 'bajas' => []];
+                            }
+
+                            return $datos;
                         }
-
-                        return $datos;
-                    }
-                );
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Cache GECROS no disponible: ' . $e->getMessage());
+                    $data = $service->getAltasBajas($cierre['desde'], $cierre['hasta']);
+                }
             }
 
             $configured = $configured && ($data['configured'] ?? false);
