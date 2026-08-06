@@ -5,9 +5,9 @@ namespace App\Console\Commands;
 use App\Models\Contact;
 use App\Models\GecrosVendedor;
 use App\Models\User;
+use App\Support\MatcherDeNombres;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 /**
  * Sincroniza el catálogo de vendedores de afiliación de GECROS
@@ -30,7 +30,7 @@ class SyncGecrosVendedores extends Command
 
     protected $description = 'Sincroniza vendedores GECROS y los vincula con usuarios del CRM';
 
-    private array $sellers = [];
+    private MatcherDeNombres $matcher;
 
     public function handle(): int
     {
@@ -132,61 +132,14 @@ class SyncGecrosVendedores extends Command
 
     private function loadSellers(): void
     {
-        User::where('role', 'seller')
-            ->get(['id', 'name'])
-            ->each(function (User $user) {
-                $this->sellers[$user->id] = [
-                    'name' => (string) $user->name,
-                    'palabras' => $this->palabras((string) $user->name),
-                ];
-            });
+        $this->matcher = new MatcherDeNombres(
+            User::where('role', 'seller')->pluck('name', 'id')->all()
+        );
     }
 
     private function matchSellerPorNombre(string $nombreGecros): ?int
     {
-        $palabrasGecros = $this->palabras($nombreGecros);
-        $normGecros = implode(' ', $palabrasGecros);
-
-        $exactos = [];
-        $subsets = [];
-        $reversos = [];
-        $fuzzy = [];
-
-        foreach ($this->sellers as $id => $seller) {
-            $palabrasSeller = $seller['palabras'];
-            $normSeller = implode(' ', $palabrasSeller);
-
-            if ($normSeller === $normGecros) {
-                $exactos[] = $id;
-                continue;
-            }
-
-            if (count($palabrasSeller) > 1 && $this->esSubconjunto($palabrasSeller, $palabrasGecros)) {
-                $subsets[] = $id;
-                continue;
-            }
-
-            if (count($palabrasGecros) > 1 && $this->esSubconjunto($palabrasGecros, $palabrasSeller)) {
-                $reversos[] = $id;
-                continue;
-            }
-
-            $distancia = levenshtein($normSeller, $normGecros);
-            if ($distancia <= 2) {
-                $fuzzy[] = $id;
-            }
-        }
-
-        foreach (['exactos', 'subsets', 'reversos'] as $tipo) {
-            if (count($$tipo) === 1) {
-                return $$tipo[0];
-            }
-            if (count($$tipo) > 1) {
-                return null; // Ambiguo: no asignar.
-            }
-        }
-
-        return count($fuzzy) === 1 ? $fuzzy[0] : null;
+        return $this->matcher->match($nombreGecros);
     }
 
     private function vincularPorDni(string $baseUrl, string $apiKey): int
@@ -233,37 +186,13 @@ class SyncGecrosVendedores extends Command
                 // Poca evidencia: dejar sin vincular antes que atribuir mal.
                 continue;
             }
-            $this->info("  DNI: venafi {$venafiId} -> {$this->sellers[$ganador]['name']} "
-                . "({$cantidad} contactos)");
+            $this->info("  DNI: venafi {$venafiId} -> "
+                . (User::find($ganador)->name ?? "usuario {$ganador}") . " ({$cantidad} contactos)");
             $rec->user_id = $ganador;
             $rec->save();
             $vinculados++;
         }
 
         return $vinculados;
-    }
-
-    private function palabras(string $nombre): array
-    {
-        $normalizado = Str::ascii(Str::upper($nombre));
-        $palabras = preg_split('/\s+/', preg_replace('/[^A-Z0-9\s]/', ' ', $normalizado) ?? '') ?? [];
-        $palabras = array_values(array_filter($palabras, fn ($p) => $p !== ''));
-
-        sort($palabras);
-
-        return $palabras;
-    }
-
-    private function esSubconjunto(array $menor, array $mayor): bool
-    {
-        $counts = array_count_values($mayor);
-        foreach ($menor as $palabra) {
-            if (!isset($counts[$palabra]) || $counts[$palabra] <= 0) {
-                return false;
-            }
-            $counts[$palabra]--;
-        }
-
-        return true;
     }
 }

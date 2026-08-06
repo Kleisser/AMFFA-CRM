@@ -40,4 +40,10 @@ return [
         'api_key' => env('GECROS_BRIDGE_KEY'),
     ],
 
+    'ventas' => [
+        'spreadsheet_id' => env('VENTAS_SPREADSHEET_ID'),
+        'sheet_range' => env('VENTAS_SHEET_RANGE', 'Ventas!A1:Z200'),
+        'credentials' => env('GOOGLE_CREDENTIALS_PATH', storage_path('app/google-credentials.json')),
+    ],
+
 ];

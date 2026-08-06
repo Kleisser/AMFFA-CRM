@@ -15,6 +15,7 @@ use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TimelineController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VentasController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\ZoneController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/external-checks', [ExternalCheckController::class, 'index']);
     Route::post('/contacts/{contact}/external-check', [ExternalCheckController::class, 'refresh']);
     Route::get('/external-checks/altas-bajas', [AltasBajasController::class, 'index']);
+    Route::get('/ventas', [VentasController::class, 'index']);
 
     Route::apiResource('users', UserController::class);
     Route::get('/users/{user}/kpi', [UserController::class, 'kpi']);

@@ -19,6 +19,13 @@ if [ -n "$APP_URL" ]; then
     sed -i "s|^APP_URL=.*|APP_URL=$APP_URL|" .env
 fi
 
+# Credenciales de la cuenta de servicio de Google (Ventas): se reciben
+# en base64 como variable de entorno y se materializan en el archivo que
+# espera config/services.php (GOOGLE_CREDENTIALS_PATH).
+if [ -n "$GOOGLE_CREDENTIALS_BASE64" ]; then
+    echo "$GOOGLE_CREDENTIALS_BASE64" | base64 -d > /var/www/backend/storage/app/google-credentials.json
+fi
+
 if [ -n "$SESSION_DOMAIN" ]; then
     sed -i "s|^SESSION_DOMAIN=.*|SESSION_DOMAIN=$SESSION_DOMAIN|" .env
 fi

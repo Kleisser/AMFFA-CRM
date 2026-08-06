@@ -34,3 +34,6 @@ nginx/ssl/
 # Puente GECROS
 gecros-bridge/node_modules/
 gecros-bridge/.env
+
+# Credenciales de servicio de Google (Ventas)
+backend/storage/app/google-credentials.json
