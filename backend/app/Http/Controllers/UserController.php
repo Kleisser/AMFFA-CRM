@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -134,6 +135,8 @@ class UserController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()->isAdmin(), 403);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
@@ -152,6 +155,12 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        if ($user->id === $request->user()->id && $request->has('is_active') && !$request->boolean('is_active')) {
+            return response()->json(['message' => 'No puedes darte de baja a ti mismo'], 422);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $user->id,
@@ -171,8 +180,48 @@ class UserController extends Controller
         return response()->json($user->load('supervisor'));
     }
 
-    public function destroy(User $user): JsonResponse
+    public function reassignSupervisor(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        if (!$user->isSeller()) {
+            return response()->json(['message' => 'Solo se puede reasignar a asesores'], 422);
+        }
+
+        $validated = $request->validate([
+            'supervisor_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'supervisor'))],
+        ]);
+
+        $user->update(['supervisor_id' => $validated['supervisor_id'] ?? null]);
+
+        return response()->json($user->load('supervisor'));
+    }
+
+    public function toggleActive(Request $request, User $user): JsonResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        if (!$user->isSeller()) {
+            return response()->json(['message' => 'Solo se puede dar de baja a asesores'], 422);
+        }
+
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'No puedes darte de baja a ti mismo'], 422);
+        }
+
+        $validated = $request->validate([
+            'is_active' => 'required|boolean',
+        ]);
+
+        $user->update(['is_active' => $validated['is_active']]);
+
+        return response()->json($user->load('supervisor'));
+    }
+
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
         $user->delete();
         return response()->json(['message' => 'User deleted']);
     }

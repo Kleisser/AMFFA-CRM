@@ -34,6 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ventas', [VentasController::class, 'index']);
 
     Route::apiResource('users', UserController::class);
+    Route::patch('/users/{user}/supervisor', [UserController::class, 'reassignSupervisor']);
+    Route::patch('/users/{user}/active', [UserController::class, 'toggleActive']);
     Route::get('/users/{user}/kpi', [UserController::class, 'kpi']);
     Route::apiResource('contacts', ContactController::class);
     Route::patch('/contacts/{contact}/stage', [ContactController::class, 'updateStage']);

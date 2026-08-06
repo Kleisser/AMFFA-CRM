@@ -81,15 +81,23 @@
             <svg class="w-5 h-5 text-gray-400 transition-transform" :class="expanded.has(sup.id) ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
           </button>
           <div v-if="expanded.has(sup.id)" class="divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-100 dark:border-gray-700">
-            <div v-for="seller in sup.sellers" :key="seller.id" class="flex items-center px-5 py-3 pl-16 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <div v-for="seller in sup.sellers" :key="seller.id" class="flex items-center gap-3 px-5 py-3 pl-16 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-medium text-gray-800 dark:text-white truncate">{{ seller.name }}</p>
                 <p class="text-xs text-gray-500 truncate">{{ seller.email }}</p>
               </div>
-              <span class="text-xs font-medium px-2 py-0.5 rounded-full mr-3"
-                :class="seller.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'">
-                {{ seller.is_active ? 'Activo' : 'Inactivo' }}
-              </span>
+              <select :value="seller.supervisor_id ?? ''" @change="moveSeller(seller, $event.target.value)"
+                class="text-xs border rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200" title="Reasignar supervisor">
+                <option value="">Sin supervisor</option>
+                <option v-for="s in supervisors" :key="s.id" :value="s.id" :disabled="seller.supervisor_id === s.id">{{ s.name }}</option>
+              </select>
+              <button @click="toggleActive(seller)"
+                class="text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0"
+                :class="seller.is_active
+                  ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20'
+                  : 'border-green-200 text-green-600 hover:bg-green-50 dark:border-green-900/50 dark:text-green-400 dark:hover:bg-green-900/20'">
+                {{ seller.is_active ? 'Dar de baja' : 'Reactivar' }}
+              </button>
               <button @click="viewKpi(seller)" class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 flex-shrink-0">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 Ver KPIs
@@ -261,6 +269,38 @@ async function createUser() {
     showForm.value = false
     form.value = { name: '', email: '', password: '', role: 'seller' }
     loadUsers()
+  } catch (e) { console.error(e) }
+}
+
+async function moveSeller(seller, supervisorId) {
+  const oldId = seller.supervisor_id
+  const newId = supervisorId ? Number(supervisorId) : null
+  try {
+    await api.patch(`/users/${seller.id}/supervisor`, { supervisor_id: supervisorId || null })
+    seller.supervisor_id = newId
+
+    const oldSup = supervisors.value.find(s => s.id === oldId)
+    if (oldSup?.sellers) {
+      oldSup.sellers = oldSup.sellers.filter(s => s.id !== seller.id)
+    }
+
+    const newSup = supervisors.value.find(s => s.id === newId)
+    if (newSup) {
+      if (!newSup.sellers) newSup.sellers = []
+      newSup.sellers.push(seller)
+      newSup.sellers.sort((a, b) => a.name.localeCompare(b.name))
+      const s = new Set(expanded.value)
+      s.add(newId)
+      expanded.value = s
+    }
+  } catch (e) { console.error(e) }
+}
+
+async function toggleActive(seller) {
+  const next = !seller.is_active
+  try {
+    await api.patch(`/users/${seller.id}/active`, { is_active: next })
+    seller.is_active = next
   } catch (e) { console.error(e) }
 }
 
