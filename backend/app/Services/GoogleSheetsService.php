@@ -24,14 +24,14 @@ class GoogleSheetsService
     }
 
     /**
-     * Devuelve las celdas de la planilla configurada como array de filas.
-     * null si la planilla no está configurada.
+     * Devuelve las celdas de una planilla como array de filas.
+     * null si no hay planilla configurada.
      *
      * @return array<int, array<int, string>>|null
      */
-    public function getValues(): ?array
+    public function getValues(?string $spreadsheetId = null): ?array
     {
-        $spreadsheetId = (string) config('services.ventas.spreadsheet_id', '');
+        $spreadsheetId = $spreadsheetId ?? (config('services.ventas.spreadsheet_ids')[0] ?? '');
         if ($spreadsheetId === '') {
             return null;
         }
@@ -46,12 +46,36 @@ class GoogleSheetsService
 
         if (!$response->successful()) {
             Log::warning('Google Sheets respondió con error HTTP ' . $response->status()
-                . ': ' . substr((string) $response->body(), 0, 300));
+                . ' (' . $spreadsheetId . '): ' . substr((string) $response->body(), 0, 300));
 
             return [];
         }
 
         return $response->json('values') ?? [];
+    }
+
+    /**
+     * Nombres de las pestañas de una planilla (para diagnóstico de integración).
+     *
+     * @return array<int, string>
+     */
+    public function getTabs(string $spreadsheetId): array
+    {
+        $token = $this->accessToken();
+
+        $response = Http::timeout(30)
+            ->withToken($token)
+            ->get('https://sheets.googleapis.com/v4/spreadsheets/' . urlencode($spreadsheetId)
+                . '?fields=sheets.properties.title');
+
+        if (!$response->successful()) {
+            throw new \RuntimeException('No se pudieron listar pestañas de ' . $spreadsheetId . ': HTTP '
+                . $response->status() . ' ' . substr((string) $response->body(), 0, 200));
+        }
+
+        return collect($response->json('sheets') ?? [])
+            ->pluck('properties.title')
+            ->all();
     }
 
     private function credentials(): array

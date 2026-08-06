@@ -12,6 +12,7 @@ class Venta extends Model
         'asesor',
         'mes',
         'monto',
+        'fuente',
         'sincronizada_at',
     ];
 

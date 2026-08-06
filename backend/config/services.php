@@ -41,7 +41,10 @@ return [
     ],
 
     'ventas' => [
-        'spreadsheet_id' => env('VENTAS_SPREADSHEET_ID'),
+        'spreadsheet_ids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('VENTAS_SPREADSHEETS', ''))
+        ))),
         'sheet_range' => env('VENTAS_SHEET_RANGE', 'Ventas!A1:Z200'),
         'credentials' => env('GOOGLE_CREDENTIALS_PATH', storage_path('app/google-credentials.json')),
     ],

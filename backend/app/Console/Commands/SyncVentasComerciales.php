@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\GecrosVendedor;
 use App\Models\User;
 use App\Models\Venta;
 use App\Services\GoogleSheetsService;
@@ -29,84 +30,111 @@ class SyncVentasComerciales extends Command
 
     public function handle(GoogleSheetsService $sheets): int
     {
-        if (config('services.ventas.spreadsheet_id') === '') {
-            $this->error('VENTAS_SPREADSHEET_ID no configurado (config/services.php ventas.spreadsheet_id)');
+        $spreadsheetIds = config('services.ventas.spreadsheet_ids', []);
+
+        if ($spreadsheetIds === []) {
+            $this->error('VENTAS_SPREADSHEETS no configurado (IDs de planilla separados por coma)');
 
             return self::FAILURE;
-        }
-
-        try {
-            $values = $sheets->getValues();
-        } catch (\Throwable $e) {
-            $this->error('Error con Google Sheets: ' . $e->getMessage());
-
-            return self::FAILURE;
-        }
-
-        if ($values === null || $values === []) {
-            $this->warn('La planilla no devolvió filas (revisar VENTAS_SHEET_RANGE).');
-
-            return self::SUCCESS;
-        }
-
-        $cabeceras = array_shift($values);
-
-        $meses = [];
-        foreach ($cabeceras as $i => $header) {
-            $meses[$i] = $this->normalizarMes((string) $header);
         }
 
         $matcher = new MatcherDeNombres(
             User::where('role', 'seller')->pluck('name', 'id')->all()
         );
 
-        $guardadas = 0;
-        $matcheadas = 0;
-        $sinMatch = [];
+        // Segundo matcher contra el catálogo GECROS (vendedoresafi): las
+        // planillas suelen usar esos nombres ("BLANCO MARIA DE LAS MERCEDES").
+        // Matcheando el nombre del catálogo caemos al user_id ya vinculado.
+        $gecrosPorUser = GecrosVendedor::whereNotNull('user_id')
+            ->get(['nombre', 'user_id'])
+            ->pluck('nombre', 'user_id')
+            ->all();
+        $matcherGecros = $gecrosPorUser !== [] ? new MatcherDeNombres($gecrosPorUser) : null;
+
+        $totalFilas = 0;
+        $totalMatcheadas = 0;
+        $totalMontos = 0;
+        $todasSinMatch = [];
         $mesesIgnorados = [];
 
-        foreach ($values as $fila) {
-            $nombre = trim((string) ($fila[0] ?? ''));
-            if ($nombre === '' || $this->esFilaTotal($nombre)) {
+        foreach ($spreadsheetIds as $spreadsheetId) {
+            try {
+                $values = $sheets->getValues($spreadsheetId);
+            } catch (\Throwable $e) {
+                $this->error("Error con Google Sheets ({$spreadsheetId}): " . $e->getMessage());
+
+                return self::FAILURE;
+            }
+
+            if ($values === null || $values === []) {
+                $this->warn("La planilla {$spreadsheetId} no devolvió filas (revisar VENTAS_SHEET_RANGE).");
+
                 continue;
             }
 
-            $userId = $matcher->match($nombre);
-            if ($userId !== null) {
-                $matcheadas++;
-            } else {
-                $sinMatch[$nombre] = true;
+            $cabeceras = array_shift($values);
+
+            $meses = [];
+            foreach ($cabeceras as $i => $header) {
+                $meses[$i] = $this->normalizarMes((string) $header);
             }
 
-            foreach ($fila as $i => $celda) {
-                $mes = $meses[$i] ?? null;
-                if ($mes === null) {
-                    if ($i > 0 && isset($cabeceras[$i])) {
-                        $mesesIgnorados[(string) $cabeceras[$i]] = true;
+            $guardadas = 0;
+            $matcheadas = 0;
+
+            foreach ($values as $fila) {
+                $nombre = trim((string) ($fila[0] ?? ''));
+                if ($nombre === '' || $this->esFilaTotal($nombre)) {
+                    continue;
+                }
+
+                $userId = $matcher->match($nombre);
+                if ($userId === null && $matcherGecros !== null) {
+                    $userId = $matcherGecros->match($nombre);
+                }
+                if ($userId !== null) {
+                    $matcheadas++;
+                } else {
+                    $todasSinMatch[$nombre] = true;
+                }
+
+                foreach ($fila as $i => $celda) {
+                    $mes = $meses[$i] ?? null;
+                    if ($mes === null) {
+                        if ($i > 0 && isset($cabeceras[$i])) {
+                            $mesesIgnorados[(string) $cabeceras[$i]] = true;
+                        }
+                        continue;
                     }
-                    continue;
-                }
 
-                $monto = $this->parseMonto((string) $celda);
-                if ($monto <= 0) {
-                    continue;
-                }
+                    $monto = $this->parseMonto((string) $celda);
+                    if ($monto <= 0) {
+                        continue;
+                    }
 
-                Venta::updateOrCreate(
-                    ['asesor' => $nombre, 'mes' => $mes],
-                    ['user_id' => $userId, 'monto' => $monto, 'sincronizada_at' => now()]
-                );
-                $guardadas++;
+                    Venta::updateOrCreate(
+                        ['asesor' => $nombre, 'mes' => $mes, 'fuente' => $spreadsheetId],
+                        ['user_id' => $userId, 'monto' => $monto, 'sincronizada_at' => now()]
+                    );
+                    $guardadas++;
+                }
             }
+
+            $this->info("Planilla {$spreadsheetId}: filas de asesores " . count($values)
+                . " | con match: {$matcheadas} | montos guardados: {$guardadas}");
+
+            $totalFilas += count($values);
+            $totalMatcheadas += $matcheadas;
+            $totalMontos += $guardadas;
         }
 
-        $this->info("Filas de asesores: " . count($values) . " | con match: {$matcheadas} | montos guardados: {$guardadas}");
+        $this->info("Totales: filas {$totalFilas} | con match {$totalMatcheadas} | montos {$totalMontos}");
 
         if ($mesesIgnorados !== []) {
             $this->warn('Columnas ignoradas (mes no reconocido): ' . implode(', ', array_keys($mesesIgnorados)));
         }
 
-        $nombresSinMatch = array_keys($sinMatch);
+        $nombresSinMatch = array_keys($todasSinMatch);
         if ($nombresSinMatch !== []) {
             $this->warn('Sin match contra usuarios del CRM (' . count($nombresSinMatch) . '):');
             foreach ($nombresSinMatch as $nombre) {
