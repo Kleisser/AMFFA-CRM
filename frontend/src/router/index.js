@@ -10,9 +10,12 @@ import Conversations from '../views/Conversations.vue'
 import Tasks from '../views/Tasks.vue'
 import CalendarVisits from '../views/CalendarVisits.vue'
 import PipelineKanban from '../views/PipelineKanban.vue'
-import Products from '../views/Products.vue'
+import Plans from '../views/Plans.vue'
 import Users from '../views/Users.vue'
 import Pipelines from '../views/Pipelines.vue'
+import Zones from '../views/Zones.vue'
+import ExternalChecks from '../views/ExternalChecks.vue'
+import AltasBajas from '../views/AltasBajas.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login, meta: { guest: true } },
@@ -30,9 +33,12 @@ const routes = [
       { path: 'tasks', name: 'Tasks', component: Tasks },
       { path: 'visits', name: 'CalendarVisits', component: CalendarVisits },
       { path: 'pipeline', name: 'PipelineKanban', component: PipelineKanban },
-      { path: 'products', name: 'Products', component: Products },
+      { path: 'plans', name: 'Plans', component: Plans },
       { path: 'users', name: 'Users', component: Users, meta: { role: ['admin', 'supervisor'] } },
       { path: 'pipelines', name: 'Pipelines', component: Pipelines, meta: { role: ['admin'] } },
+      { path: 'zones', name: 'Zones', component: Zones, meta: { role: ['admin'] } },
+      { path: 'external-checks', name: 'ExternalChecks', component: ExternalChecks, meta: { role: ['admin', 'supervisor'] } },
+      { path: 'altas-bajas', name: 'AltasBajas', component: AltasBajas, meta: { role: ['admin', 'supervisor'] } },
     ],
   },
 ]

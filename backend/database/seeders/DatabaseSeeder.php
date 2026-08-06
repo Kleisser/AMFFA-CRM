@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
         $supervisor1 = User::firstOrCreate(
             ['email' => 'supervisor@amffa.com.ar'],
             [
-                'name' => 'Supervisor 1',
+                'name' => 'Anzelmo Ignacio',
                 'password' => Hash::make('Supervisor2026#'),
                 'role' => 'supervisor',
                 'is_active' => true,
@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         $supervisor2 = User::firstOrCreate(
             ['email' => 'supervisor2@amffa.com.ar'],
             [
-                'name' => 'Supervisor 2',
+                'name' => 'Ortiz Gladys',
                 'password' => Hash::make('Supervisor2026#'),
                 'role' => 'supervisor',
                 'is_active' => true,
@@ -46,7 +46,7 @@ class DatabaseSeeder extends Seeder
         $supervisor3 = User::firstOrCreate(
             ['email' => 'supervisor3@amffa.com.ar'],
             [
-                'name' => 'Supervisor 3',
+                'name' => 'Detry Maria',
                 'password' => Hash::make('Supervisor2026#'),
                 'role' => 'supervisor',
                 'is_active' => true,
@@ -89,6 +89,9 @@ class DatabaseSeeder extends Seeder
                 ['order' => $index, 'color' => $stage['color']]
             );
         }
+
+        $this->call(ZoneSeeder::class);
+        $this->call(PlanSeeder::class);
 
         if (Contact::count() === 0) {
             $this->call(DemoDataSeeder::class);

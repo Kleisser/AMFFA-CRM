@@ -28,8 +28,11 @@
         <thead class="bg-gray-50 dark:bg-gray-800">
           <tr>
             <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">DNI</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Teléfono</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Zona</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Etapa</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Asignado a</th>
             <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deal</th>
@@ -43,8 +46,16 @@
                 {{ contact.name }}
               </router-link>
             </td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ contact.dni || '-' }}</td>
             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ contact.email || '-' }}</td>
             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ contact.phone || '-' }}</td>
+            <td class="px-4 py-3">
+              <span v-if="contact.zone" class="text-xs font-medium px-2 py-1 rounded-full" :style="{ backgroundColor: contact.zone.color + '20', color: contact.zone.color }">
+                {{ contact.zone.name }}
+              </span>
+              <span v-else class="text-sm text-gray-400">-</span>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ contact.plan?.name || '-' }}</td>
             <td class="px-4 py-3">
               <span v-if="contact.pipeline_stage" class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full"
                 :style="{ backgroundColor: contact.pipeline_stage.color + '20', color: contact.pipeline_stage.color }">
@@ -126,6 +137,7 @@ async function handleExport() {
     const list = data.data || []
     const rows = list.map(c => ({
       Nombre: c.name,
+      DNI: c.dni || '',
       Email: c.email || '',
       Teléfono: c.phone || '',
       Empresa: c.company || '',

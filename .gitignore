@@ -19,3 +19,18 @@ docker-compose.override.yml
 nginx/ssl/
 # Railway local files
 .railway/
+# Archivos fuente de datos geográficos (no se versionan)
+/localidades para agrupaciones geograficas.xlsx
+/~$*.xlsx
+
+# Archivos fuente de datos comerciales (no se versionan)
+/Control Equipo Comercial.xlsx
+/*.DBF
+/*.dbf
+/Contactos-reporte-ventia.xlsx
+/Contactos-reporte-MariaDetry.xlsx
+/dashboard_equipo_comercial.html
+
+# Puente GECROS
+gecros-bridge/node_modules/
+gecros-bridge/.env

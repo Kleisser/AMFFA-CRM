@@ -50,30 +50,67 @@ class DemoDataSeeder extends Seeder
 
         $contactIds = [];
 
+        $demoLocalities = \App\Models\Locality::with('zone')->inRandomOrder()->limit(400)->get();
+        $plans = \App\Models\Plan::where('is_active', true)->get();
+        $quoteService = app(\App\Services\QuoteService::class);
+
         for ($i = 0; $i < 120; $i++) {
             $name = $firstNames[array_rand($firstNames)] . ' ' . $lastNames[array_rand($lastNames)];
             $stageId = $stages[array_rand($stages)];
             $asesor = $asesores->random();
             $source = $sources[array_rand($sources)];
             $daysAgo = rand(0, 60);
+            $demoLocality = $demoLocalities->random();
 
-            $dealValue = in_array($stageId, [3, 4, 5]) ? rand(500, 50000) / 100 : 0;
+            $plan = $plans->count() ? $plans->random() : null;
+            $family = [];
+            if ($plan) {
+                $titularAge = rand(22, 65);
+                $family[] = ['relation' => 'titular', 'age' => $titularAge];
+                if (rand(0, 1)) {
+                    $family[] = ['relation' => 'conyuge', 'age' => max(18, $titularAge + rand(-5, 5))];
+                }
+                $childCount = rand(0, 3);
+                for ($c = 0; $c < $childCount; $c++) {
+                    $family[] = ['relation' => 'hijo', 'age' => rand(1, 25)];
+                }
+            }
 
             $contact = Contact::create([
                 'name' => $name,
+                'dni' => (string) rand(10000000, 49999999),
                 'email' => strtolower(str_replace(' ', '.', $name)) . '@email.com',
                 'phone' => '11' . rand(20000000, 59999999),
                 'company' => $companies[array_rand($companies)],
                 'position' => ['CEO', 'Gerente', 'Analista', 'Director', 'Coordinador', 'Asistente'][array_rand(['CEO', 'Gerente', 'Analista', 'Director', 'Coordinador', 'Asistente'])],
                 'source' => $source,
                 'address' => 'Av. ' . ['Corrientes', 'Santa Fe', 'Córdoba', 'Callao', 'Rivadavia', 'Cabildo'][array_rand(['Corrientes', 'Santa Fe', 'Córdoba', 'Callao', 'Rivadavia', 'Cabildo'])] . ' ' . rand(100, 5000),
+                'zone_id' => $demoLocality->zone_id,
+                'locality_id' => $demoLocality->id,
+                'plan_id' => $plan?->id,
                 'pipeline_stage_id' => $stageId,
-                'deal_value' => $dealValue,
                 'assigned_to' => $asesor->id,
                 'created_by' => $asesor->id,
                 'created_at' => now()->subDays($daysAgo),
                 'updated_at' => now()->subDays(rand(0, $daysAgo)),
             ]);
+
+            foreach ($family as $index => $member) {
+                \App\Models\FamilyMember::create([
+                    'contact_id' => $contact->id,
+                    'relation' => $member['relation'],
+                    'age' => $member['age'],
+                    'sort_order' => $index,
+                ]);
+            }
+
+            if ($plan) {
+                $titular = $family[0]['age'] ?? null;
+                $conyuge = collect($family)->firstWhere('relation', 'conyuge')['age'] ?? null;
+                $hijos = collect($family)->where('relation', 'hijo')->pluck('age')->values()->all();
+                $quote = $quoteService->calculate($plan, null, $titular, $conyuge, $hijos);
+                $contact->updateQuietly(['deal_value' => $quote['total'] ?? null]);
+            }
 
             $contactIds[] = $contact->id;
 

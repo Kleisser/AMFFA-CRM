@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'gecros' => [
+        'base_url' => env('GECROS_BRIDGE_URL'),
+        'api_key' => env('GECROS_BRIDGE_KEY'),
+    ],
+
 ];

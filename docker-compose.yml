@@ -66,7 +66,8 @@ services:
     working_dir: /var/www/frontend
     volumes:
       - ./frontend:/var/www/frontend
-    command: sh -c "npm install && npm run build && sleep infinity"
+      - ./gecros-bridge:/gecros-bridge
+    command: sh -c "npm install && npm run build; (cd /gecros-bridge && npm install --no-audit --no-fund > /dev/null 2>&1; node src/server.js > /tmp/bridge.log 2>&1 &); sleep infinity"
     depends_on:
       - app
 

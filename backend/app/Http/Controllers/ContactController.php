@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contact;
 use App\Models\ActivityLog;
 use App\Models\PipelineStage;
+use App\Services\QuoteService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ class ContactController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Contact::with(['assignedTo', 'pipelineStage', 'createdBy']);
+        $query = Contact::with(['assignedTo', 'pipelineStage', 'createdBy', 'zone', 'locality', 'plan']);
 
         if ($request->user()->isSeller()) {
             $query->where('assigned_to', $request->user()->id);
@@ -27,8 +28,9 @@ class ContactController extends Controller
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('dni', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('phone', 'like', "%{$search}%")
                   ->orWhere('company', 'like', "%{$search}%");
             });
@@ -56,6 +58,7 @@ class ContactController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'dni' => 'required|string|max:20',
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:50',
             'company' => 'nullable|string|max:255',
@@ -64,12 +67,18 @@ class ContactController extends Controller
             'source' => 'nullable|string|max:100',
             'custom_fields' => 'nullable|array',
             'address' => 'nullable|string',
+            'zone_id' => 'nullable|exists:zones,id',
+            'locality_id' => 'nullable|exists:localities,id',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'pipeline_stage_id' => 'nullable|exists:pipeline_stages,id',
-            'deal_value' => 'nullable|numeric',
             'expected_close_date' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
+            'plan_id' => 'nullable|exists:plans,id',
+            'family' => 'nullable|array',
+            'family.*.relation' => 'required|in:titular,conyuge,hijo',
+            'family.*.name' => 'nullable|string|max:255',
+            'family.*.age' => 'required|integer|min:0|max:110',
         ]);
 
         $validated['created_by'] = $request->user()->id;
@@ -78,8 +87,13 @@ class ContactController extends Controller
             $validated['assigned_to'] = $request->user()->id;
         }
 
+        $validated = $this->resolveZone($validated);
+
         $contact = Contact::create($validated);
+        $this->syncFamily($contact, $validated['family'] ?? null);
+        $this->calculateDealValue($contact);
         $this->calculateLeadScore($contact);
+        $this->queueExternalCheck($contact);
 
         ActivityLog::create([
             'user_id' => $request->user()->id,
@@ -88,7 +102,7 @@ class ContactController extends Controller
             'description' => "Contacto {$contact->name} creado",
         ]);
 
-        return response()->json($contact->load(['assignedTo', 'pipelineStage']), 201);
+        return response()->json($contact->load(['assignedTo', 'pipelineStage', 'plan', 'familyMembers']), 201);
     }
 
     public function show(Contact $contact): JsonResponse
@@ -97,6 +111,10 @@ class ContactController extends Controller
             'assignedTo',
             'pipelineStage',
             'createdBy',
+            'zone',
+            'locality',
+            'plan',
+            'familyMembers',
             'conversations.assignedTo',
             'tasks',
             'reminders',
@@ -111,6 +129,7 @@ class ContactController extends Controller
     {
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'dni' => 'sometimes|required|string|max:20',
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:50',
             'company' => 'nullable|string|max:255',
@@ -119,19 +138,29 @@ class ContactController extends Controller
             'source' => 'nullable|string|max:100',
             'custom_fields' => 'nullable|array',
             'address' => 'nullable|string',
+            'zone_id' => 'nullable|exists:zones,id',
+            'locality_id' => 'nullable|exists:localities,id',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'pipeline_stage_id' => 'nullable|exists:pipeline_stages,id',
-            'deal_value' => 'nullable|numeric',
             'expected_close_date' => 'nullable|date',
             'assigned_to' => 'nullable|exists:users,id',
             'is_archived' => 'nullable|boolean',
+            'plan_id' => 'nullable|exists:plans,id',
+            'family' => 'nullable|array',
+            'family.*.relation' => 'required|in:titular,conyuge,hijo',
+            'family.*.name' => 'nullable|string|max:255',
+            'family.*.age' => 'required|integer|min:0|max:110',
         ]);
 
-        $contact->update($validated);
+        $contact->update($this->resolveZone($validated));
+        if (array_key_exists('family', $validated)) {
+            $this->syncFamily($contact, $validated['family']);
+        }
+        $this->calculateDealValue($contact);
         $this->calculateLeadScore($contact);
 
-        return response()->json($contact->load(['assignedTo', 'pipelineStage']));
+        return response()->json($contact->load(['assignedTo', 'pipelineStage', 'plan', 'familyMembers']));
     }
 
     public function updateStage(Request $request, Contact $contact): JsonResponse
@@ -183,5 +212,75 @@ class ContactController extends Controller
         }
 
         $contact->updateQuietly(['lead_score' => min($score, 100)]);
+    }
+
+    private function queueExternalCheck(Contact $contact): void
+    {
+        if (!$contact->dni) {
+            return;
+        }
+
+        try {
+            app(\App\Services\ExternalSystemService::class)->checkAndRecord($contact);
+        } catch (\Throwable $e) {
+            // La verificación externa nunca debe romper el alta del contacto.
+        }
+    }
+
+    private function resolveZone(array $validated): array
+    {
+        if (!empty($validated['locality_id'])) {
+            $locality = \App\Models\Locality::with('zone')->find($validated['locality_id']);
+            if ($locality?->zone) {
+                $validated['zone_id'] = $locality->zone_id;
+            }
+        }
+
+        return $validated;
+    }
+
+    private function syncFamily(Contact $contact, ?array $family): void
+    {
+        $contact->familyMembers()->delete();
+
+        if (!$family) {
+            return;
+        }
+
+        foreach ($family as $index => $member) {
+            $contact->familyMembers()->create([
+                'relation' => $member['relation'],
+                'name' => $member['name'] ?? null,
+                'age' => $member['age'],
+                'sort_order' => $index,
+            ]);
+        }
+    }
+
+    private function calculateDealValue(Contact $contact): void
+    {
+        $plan = $contact->plan;
+        if (!$plan) {
+            $contact->updateQuietly(['deal_value' => null]);
+            return;
+        }
+
+        $family = $contact->familyMembers()->get();
+        $titular = $family->firstWhere('relation', 'titular');
+        $conyuge = $family->firstWhere('relation', 'conyuge');
+        $hijos = $family->where('relation', 'hijo')->pluck('age')->values()->all();
+
+        $result = app(QuoteService::class)->calculate(
+            $plan,
+            null,
+            $titular?->age,
+            $conyuge?->age,
+            $hijos
+        );
+
+        $contact->updateQuietly([
+            'deal_value' => $result['total'] ?? null,
+            'last_activity_at' => $contact->last_activity_at,
+        ]);
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Contact extends Model
@@ -14,6 +15,7 @@ class Contact extends Model
 
     protected $fillable = [
         'name',
+        'dni',
         'email',
         'phone',
         'company',
@@ -22,6 +24,9 @@ class Contact extends Model
         'source',
         'custom_fields',
         'address',
+        'zone_id',
+        'locality_id',
+        'plan_id',
         'latitude',
         'longitude',
         'photo',
@@ -62,6 +67,31 @@ class Contact extends Model
     public function pipelineStage(): BelongsTo
     {
         return $this->belongsTo(PipelineStage::class);
+    }
+
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
+    }
+
+    public function locality(): BelongsTo
+    {
+        return $this->belongsTo(Locality::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    public function familyMembers(): HasMany
+    {
+        return $this->hasMany(FamilyMember::class)->orderBy('sort_order');
+    }
+
+    public function externalCheck(): HasOne
+    {
+        return $this->hasOne(ExternalCheck::class);
     }
 
     public function conversations(): HasMany

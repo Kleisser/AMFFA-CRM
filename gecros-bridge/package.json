@@ -1,0 +1,14 @@
+{
+  "name": "gecros-bridge",
+  "version": "1.0.0",
+  "description": "API puente de solo lectura hacia GECROS (SQL Server) para el CRM de AMFFA. Se publica con Cloudflare Tunnel; la base de producción nunca queda expuesta.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mssql": "^11.0.1"
+  }
+}

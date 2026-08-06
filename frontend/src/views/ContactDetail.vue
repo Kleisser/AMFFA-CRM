@@ -18,13 +18,39 @@
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
           <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Información</h2>
           <dl class="grid grid-cols-2 gap-4">
+            <div><dt class="text-xs text-gray-500 dark:text-gray-400">DNI</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.dni || '-' }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Email</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.email || '-' }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Teléfono</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.phone || '-' }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Empresa</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.company || '-' }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Cargo</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.position || '-' }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Fuente</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.source || '-' }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-gray-400">Zona</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.zone?.name || '-' }} <template v-if="contact.locality">({{ contact.locality.name }})</template></dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-gray-400">Dirección</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.address || '-' }}</dd></div>
+
           </dl>
+        </div>
+
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Plan y Familia</h2>
+          <dl class="grid grid-cols-2 gap-4 mb-4">
+            <div><dt class="text-xs text-gray-500 dark:text-gray-400">Plan</dt><dd class="text-sm text-gray-800 dark:text-white">{{ contact.plan?.name || '-' }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-gray-400">Cuota</dt><dd class="text-sm font-medium text-gray-800 dark:text-white">{{ contact.deal_value ? '$' + formatNumber(contact.deal_value) : '-' }}</dd></div>
+          </dl>
+          <div v-if="contact.family_members?.length" class="flex flex-wrap gap-2 mb-4">
+            <span v-for="m in contact.family_members" :key="m.id"
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              <span class="capitalize">{{ relationLabel(m.relation) }}</span>
+              <span class="text-gray-400">·</span>
+              {{ m.age }} años
+            </span>
+          </div>
+          <p v-else class="text-xs text-gray-400 mb-4">Sin familia cargada</p>
+          <div v-if="quoteBreakdown?.length" class="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-1">
+            <div v-for="item in quoteBreakdown" :key="item.label" class="flex justify-between text-xs text-gray-600 dark:text-gray-300">
+              <span>{{ item.label }}</span>
+              <span class="font-medium text-gray-800 dark:text-white">${{ formatNumber(item.amount) }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
@@ -110,6 +136,7 @@ const route = useRoute()
 const router = useRouter()
 const contact = ref(null)
 const timeline = ref([])
+const quoteBreakdown = ref([])
 
 onMounted(fetchContact)
 
@@ -121,6 +148,23 @@ async function fetchContact() {
     ])
     contact.value = contactRes.data
     timeline.value = timelineRes?.data || []
+    await fetchQuoteBreakdown(contact.value)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function fetchQuoteBreakdown(contact) {
+  const family = contact?.family_members || []
+  if (!contact?.plan_id || !family.length) return
+  try {
+    const { data } = await api.post('/plans/quote', {
+      plan_id: contact.plan_id,
+      titular_age: family.find(m => m.relation === 'titular')?.age ?? null,
+      conyuge_age: family.find(m => m.relation === 'conyuge')?.age ?? null,
+      child_ages: family.filter(m => m.relation === 'hijo').map(m => m.age),
+    })
+    quoteBreakdown.value = data.breakdown || []
   } catch (e) {
     console.error(e)
   }
@@ -144,6 +188,11 @@ function formatTime(date) {
   if (!date) return ''
   const d = new Date(date)
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+function relationLabel(relation) {
+  const map = { titular: 'Titular', conyuge: 'Cónyuge', hijo: 'Hijo/a' }
+  return map[relation] || relation
 }
 
 function timelineDot(type) {

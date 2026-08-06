@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+supervisord.pid
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -20,6 +21,8 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/ventia_contactos.csv
+/storage/app/Contactos-reporte-ventia.xlsx
 /vendor
 _ide_helper.php
 Homestead.json
