@@ -92,6 +92,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call(ZoneSeeder::class);
         $this->call(PlanSeeder::class);
+        $this->call(RealEquiposSeeder::class);
 
         if (Contact::count() === 0) {
             $this->call(DemoDataSeeder::class);
