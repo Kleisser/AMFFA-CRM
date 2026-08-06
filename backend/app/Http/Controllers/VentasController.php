@@ -9,8 +9,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * KPI de ventas reales del equipo comercial (sincronizadas de Google Sheets).
- * Solo admin/supervisor. Agrupa por vendedor y por equipo (supervisor).
+ * KPI de ventas reales del equipo comercial (altas sincronizadas de Google
+ * Sheets, una fila por afiliado). Solo admin/supervisor. Agrupa por vendedor
+ * y por equipo (supervisor), contando altas y capitas.
  */
 class VentasController extends Controller
 {
@@ -25,10 +26,9 @@ class VentasController extends Controller
             return response()->json(['error' => 'Parámetro mes inválido'], 422);
         }
 
-        $configurada = (string) config('services.ventas.spreadsheet_id', '') !== '';
+        $configurada = config('services.ventas.spreadsheet_ids') !== [];
 
         $meses = Venta::query()
-            ->where('monto', '>', 0)
             ->pluck('mes')
             ->unique()
             ->sortDesc()
@@ -40,15 +40,17 @@ class VentasController extends Controller
 
         $filas = Venta::query()
             ->where('mes', $mes)
-            ->where('monto', '>', 0)
-            ->get(['id', 'asesor', 'user_id', 'monto', 'sincronizada_at']);
+            ->get(['id', 'asesor', 'user_id', 'capitas', 'sincronizada_at']);
 
-        $total = 0;
+        $totalAltas = 0;
+        $totalCapitas = 0;
         $porVendedor = [];
         $porEquipo = [];
 
         foreach ($filas as $v) {
-            $total += (float) $v->monto;
+            $totalAltas++;
+            $capitas = (int) ($v->capitas ?? 1);
+            $totalCapitas += $capitas;
 
             $nombreAsesor = $v->asesor;
             $userId = $v->user_id;
@@ -56,32 +58,39 @@ class VentasController extends Controller
                 $nombreAsesor = User::find($userId)?->name ?? $v->asesor;
             }
 
-            $porVendedor[$v->asesor] = [
+            $porVendedor[$v->asesor] ??= [
                 'asesor' => $nombreAsesor,
-                'monto' => number_format(($porVendedor[$v->asesor]['monto'] ?? 0) + (float) $v->monto, 2, '.', ''),
+                'altas' => 0,
+                'capitas' => 0,
                 'equipo_id' => $userId !== null ? ($equipoDe[$userId] ?? null) : null,
                 'equipo' => $userId !== null ? ($supervisorNombre[$equipoDe[$userId] ?? null] ?? null) : null,
             ];
+            $porVendedor[$v->asesor]['altas']++;
+            $porVendedor[$v->asesor]['capitas'] += $capitas;
 
             $equipoId = $porVendedor[$v->asesor]['equipo_id'];
-            $porEquipo[$equipoId ?? 'sin_equipo'] = [
+            $porEquipo[$equipoId ?? 'sin_equipo'] ??= [
                 'equipo_id' => $equipoId,
                 'equipo' => $porVendedor[$v->asesor]['equipo'] ?? null,
-                'monto' => number_format(($porEquipo[$equipoId ?? 'sin_equipo']['monto'] ?? 0) + (float) $v->monto, 2, '.', ''),
+                'altas' => 0,
+                'capitas' => 0,
             ];
+            $porEquipo[$equipoId ?? 'sin_equipo']['altas']++;
+            $porEquipo[$equipoId ?? 'sin_equipo']['capitas'] += $capitas;
         }
 
         $porVendedor = array_values($porVendedor);
         $porEquipo = array_values($porEquipo);
 
-        usort($porVendedor, fn ($a, $b) => $b['monto'] <=> $a['monto']);
-        usort($porEquipo, fn ($a, $b) => $b['monto'] <=> $a['monto']);
+        usort($porVendedor, fn ($a, $b) => $b['altas'] <=> $a['altas']);
+        usort($porEquipo, fn ($a, $b) => $b['altas'] <=> $a['altas']);
 
         return response()->json([
             'configurada' => $configurada,
             'mes' => $mes,
             'meses' => $meses,
-            'total' => number_format($total, 2, '.', ''),
+            'total' => $totalAltas,
+            'capitas' => $totalCapitas,
             'por_vendedor' => $porVendedor,
             'por_equipo' => $porEquipo,
             'sincronizada_at' => $filas->max(fn ($v) => $v->sincronizada_at)?->toDateTimeString(),

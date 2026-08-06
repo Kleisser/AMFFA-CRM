@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\GecrosVendedor;
 use App\Models\User;
 use App\Models\Venta;
-use App\Support\CierreMensual;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,20 +28,25 @@ class VentasControllerTest extends TestCase
         $v2 = User::factory()->create(['role' => 'seller', 'name' => 'Ana Diaz', 'supervisor_id' => $sup->id]);
         $sinEquipo = User::factory()->create(['role' => 'seller', 'name' => 'Suplente']);
 
-        Venta::create(['asesor' => 'Juan Perez', 'user_id' => $v1->id, 'mes' => '2026-07', 'monto' => 1000]);
-        Venta::create(['asesor' => 'Ana Diaz', 'user_id' => $v2->id, 'mes' => '2026-07', 'monto' => 500]);
-        Venta::create(['asesor' => 'Juan Perez', 'user_id' => $v1->id, 'mes' => '2026-08', 'monto' => 300]);
-        Venta::create(['asesor' => 'Suplente', 'user_id' => $sinEquipo->id, 'mes' => '2026-07', 'monto' => 200]);
+        Venta::create(['asesor' => 'Juan Perez', 'user_id' => $v1->id, 'afiliado' => 'A1', 'capitas' => 2, 'mes' => '2026-07']);
+        Venta::create(['asesor' => 'Juan Perez', 'user_id' => $v1->id, 'afiliado' => 'A2', 'capitas' => 1, 'mes' => '2026-07']);
+        Venta::create(['asesor' => 'Ana Diaz', 'user_id' => $v2->id, 'afiliado' => 'B1', 'capitas' => 3, 'mes' => '2026-07']);
+        Venta::create(['asesor' => 'Juan Perez', 'user_id' => $v1->id, 'afiliado' => 'A3', 'capitas' => 1, 'mes' => '2026-08']);
+        Venta::create(['asesor' => 'Suplente', 'user_id' => $sinEquipo->id, 'afiliado' => 'C1', 'capitas' => 1, 'mes' => '2026-07']);
 
         $this->actingAs($this->admin(), 'sanctum')
             ->getJson('/api/ventas?mes=2026-07')
             ->assertOk()
             ->assertJsonPath('mes', '2026-07')
-            ->assertJsonPath('total', '1700.00')
+            ->assertJsonPath('total', 4)
+            ->assertJsonPath('capitas', 7)
             ->assertJsonCount(3, 'por_vendedor')
             ->assertJsonPath('por_vendedor.0.asesor', 'Juan Perez')
+            ->assertJsonPath('por_vendedor.0.altas', 2)
+            ->assertJsonPath('por_vendedor.0.capitas', 3)
             ->assertJsonPath('por_equipo.0.equipo', 'Anzelmo Ignacio')
-            ->assertJsonPath('por_equipo.0.monto', '1500.00')
+            ->assertJsonPath('por_equipo.0.altas', 3)
+            ->assertJsonPath('por_equipo.0.capitas', 6)
             ->assertJsonCount(2, 'por_equipo');
     }
 
@@ -66,7 +69,7 @@ class VentasControllerTest extends TestCase
         $this->actingAs($this->admin(), 'sanctum')
             ->getJson('/api/ventas?mes=2026-01')
             ->assertOk()
-            ->assertJsonPath('total', '0.00')
+            ->assertJsonPath('total', 0)
             ->assertJsonCount(0, 'por_vendedor');
     }
 }

@@ -5,13 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Alta de venta sincronizada desde Google Sheets (una fila por afiliado).
+ */
 class Venta extends Model
 {
     protected $fillable = [
         'user_id',
         'asesor',
+        'afiliado',
+        'capitas',
+        'plan',
         'mes',
-        'monto',
+        'tab',
         'fuente',
         'sincronizada_at',
     ];
@@ -19,7 +25,7 @@ class Venta extends Model
     protected function casts(): array
     {
         return [
-            'monto' => 'decimal:2',
+            'capitas' => 'integer',
             'sincronizada_at' => 'datetime',
         ];
     }

@@ -3,12 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Services\GoogleSheetsService;
+use App\Support\PlanillasVentas;
 use Illuminate\Console\Command;
 
 /**
  * Diagnóstico de la integración de ventas: lista las pestañas de cada
- * planilla configurada y muestra una vista previa de las primeras filas,
- * para verificar permisos y ajustar VENTAS_SHEET_RANGE.
+ * planilla configurada y muestra una vista previa de la pestaña mensual
+ * más reciente, para verificar permisos y mapear el formato.
  */
 class DiagnosticarVentas extends Command
 {
@@ -41,14 +42,24 @@ class DiagnosticarVentas extends Command
             $this->info("Planilla {$spreadsheetId}");
             $this->line('  Pestañas: ' . implode(', ', $tabs));
 
-            $preview = $sheets->getValues($spreadsheetId);
-            if ($preview === null || $preview === []) {
-                $this->warn('  Sin datos en el rango configurado (' . config('services.ventas.sheet_range') . ').');
-            } else {
-                $this->line('  Vista previa (primeras ' . min(5, count($preview)) . ' filas):');
-                foreach (array_slice($preview, 0, 5) as $fila) {
-                    $this->line('    | ' . implode(' | ', array_map(fn ($c) => substr((string) $c, 0, 40), $fila)));
+            $pestanaMes = null;
+            foreach ($tabs as $tab) {
+                if (PlanillasVentas::parsearPestana($tab) !== null) {
+                    $pestanaMes = $tab;
+                    break;
                 }
+            }
+
+            if ($pestanaMes === null) {
+                $this->warn('  Sin pestañas mensuales (se espera "MES AÑO", ej. "JULIO 2026").');
+                continue;
+            }
+
+            $values = $sheets->getValues($spreadsheetId, $pestanaMes . '!A1:P2000');
+            $this->line("  Vista previa de \"{$pestanaMes}\" (" . count($values) . " filas):");
+
+            foreach (array_slice($values, 0, 5) as $fila) {
+                $this->line('    | ' . implode(' | ', array_map(fn ($c) => substr((string) $c, 0, 40), $fila)));
             }
         }
 

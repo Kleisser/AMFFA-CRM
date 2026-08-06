@@ -29,14 +29,14 @@ class GoogleSheetsService
      *
      * @return array<int, array<int, string>>|null
      */
-    public function getValues(?string $spreadsheetId = null): ?array
+    public function getValues(?string $spreadsheetId = null, ?string $range = null): ?array
     {
         $spreadsheetId = $spreadsheetId ?? (config('services.ventas.spreadsheet_ids')[0] ?? '');
         if ($spreadsheetId === '') {
             return null;
         }
 
-        $range = (string) config('services.ventas.sheet_range', 'Ventas!A1:Z200');
+        $range = $range ?? (string) config('services.ventas.sheet_range', 'Ventas!A1:Z200');
         $token = $this->accessToken();
 
         $response = Http::timeout(30)

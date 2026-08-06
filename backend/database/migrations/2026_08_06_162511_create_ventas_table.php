@@ -7,11 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Ventas reales del equipo comercial, sincronizadas desde Google Sheets.
-     * Una fila por (fuente, asesor, mes). El asesor se guarda con el nombre
-     * original de la planilla y, si matchea con un usuario del CRM, su user_id.
-     * La "fuente" es el ID de la planilla de origen: permite sumar varias
-     * hojas de cálculo sin que se pisen entre sí.
+     * Altas del equipo comercial sincronizadas desde Google Sheets.
+     * Una fila por alta (afiliado cargado). El asesor se guarda con el
+     * nombre original de la planilla y, si matchea con un usuario del CRM,
+     * su user_id. La "fuente" es el ID de la planilla de origen y "tab" la
+     * pestaña mensual donde se registró el alta.
      */
     public function up(): void
     {
@@ -19,14 +19,17 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('asesor', 191);
+            $table->string('afiliado', 191)->nullable();
+            $table->unsignedInteger('capitas')->nullable();
+            $table->string('plan', 100)->nullable();
             $table->char('mes', 7);
-            $table->decimal('monto', 14, 2)->default(0);
+            $table->string('tab', 100)->nullable();
             $table->string('fuente', 191)->default('planilla');
             $table->timestamp('sincronizada_at')->nullable();
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
-            $table->unique(['asesor', 'mes', 'fuente']);
+            $table->index(['mes', 'fuente']);
         });
     }
 

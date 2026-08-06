@@ -191,34 +191,37 @@
       </div>
 
       <p v-if="!ventas.configurada" class="mb-4 px-4 py-3 rounded-lg text-sm bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800">
-        La planilla de ventas aún no está configurada (VENTAS_SPREADSHEET_ID). Esta sección se activará cuando se configure y se comparta con la cuenta de servicio.
+        Las planillas de ventas aún no están configuradas (VENTAS_SPREADSHEETS). Esta sección se activará cuando se configuren y se compartan con la cuenta de servicio.
       </p>
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Ventas por Equipo</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Altas por Equipo</p>
           </div>
           <table class="w-full">
             <thead class="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Equipo</th>
-                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ventas</th>
+                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Altas</th>
+                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cápitas</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
               <tr v-for="(e, i) in ventas.por_equipo" :key="i" class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td class="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200">{{ e.equipo || 'Sin equipo' }}</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ money(e.monto) }}</td>
+                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ e.altas }}</td>
+                <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-300">{{ e.capitas }}</td>
               </tr>
               <tr v-if="!ventas.por_equipo.length">
-                <td colspan="2" class="px-4 py-8 text-center text-sm text-gray-400">Sin ventas para {{ mesLabel(mes) }}</td>
+                <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-400">Sin altas para {{ mesLabel(mes) }}</td>
               </tr>
             </tbody>
             <tfoot class="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <td class="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Total</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ money(ventas.total) }}</td>
+                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ ventas.total }}</td>
+                <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-300">{{ ventas.capitas }}</td>
               </tr>
             </tfoot>
           </table>
@@ -226,24 +229,26 @@
 
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden lg:col-span-2">
           <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Ventas por Vendedor</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Altas por Vendedor</p>
           </div>
           <table class="w-full">
             <thead class="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vendedor</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Equipo</th>
-                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ventas</th>
+                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Altas</th>
+                <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cápitas</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
               <tr v-for="(v, i) in ventas.por_vendedor" :key="i" class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <td class="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200">{{ v.asesor }}</td>
                 <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ v.equipo || 'Sin equipo' }}</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ money(v.monto) }}</td>
+                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ v.altas }}</td>
+                <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-300">{{ v.capitas }}</td>
               </tr>
               <tr v-if="!ventas.por_vendedor.length">
-                <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-400">Sin ventas para {{ mesLabel(mes) }}</td>
+                <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">Sin altas para {{ mesLabel(mes) }}</td>
               </tr>
             </tbody>
           </table>
@@ -269,7 +274,7 @@ const zonas = ref([])
 const altas = ref([])
 const bajas = ref([])
 const meses = ref([])
-const ventas = ref({ configurada: false, total: '0.00', por_vendedor: [], por_equipo: [], sincronizada_at: null })
+const ventas = ref({ configurada: false, total: 0, capitas: 0, por_vendedor: [], por_equipo: [], sincronizada_at: null })
 const loading = ref(true)
 
 const PALETTE = ['#2563eb', '#00b386', '#f59e0b', '#ef4444', '#8b5cf6', '#fb923c', '#06b6d4', '#10b981']
