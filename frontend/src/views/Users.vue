@@ -83,7 +83,10 @@
           <div v-if="expanded.has(sup.id)" class="divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-100 dark:border-gray-700">
             <div v-for="seller in sup.sellers" :key="seller.id" class="flex items-center gap-3 px-5 py-3 pl-16 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-800 dark:text-white truncate">{{ seller.name }}</p>
+                <p class="text-sm font-medium text-gray-800 dark:text-white truncate">
+                  {{ seller.name }}
+                  <span v-if="!seller.is_active" class="ml-2 align-middle text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">Dado de baja</span>
+                </p>
                 <p class="text-xs text-gray-500 truncate">{{ seller.email }}</p>
               </div>
               <select :value="seller.supervisor_id ?? ''" @change="moveSeller(seller, $event.target.value)"

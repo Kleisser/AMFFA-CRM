@@ -179,4 +179,36 @@ class UserManagementTest extends TestCase
             'password' => 'password',
         ])->assertForbidden();
     }
+
+    public function test_admin_hierarchy_shows_deactivated_sellers(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $sup = $this->userWithRole('supervisor');
+        $active = $this->userWithRole('seller', ['supervisor_id' => $sup->id, 'is_active' => true]);
+        $inactive = $this->userWithRole('seller', ['supervisor_id' => $sup->id, 'is_active' => false]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonPath('view', 'hierarchy')
+            ->assertJsonFragment(['id' => $active->id, 'is_active' => true])
+            ->assertJsonFragment(['id' => $inactive->id, 'is_active' => false]);
+    }
+
+    public function test_supervisor_flat_list_hides_deactivated_sellers(): void
+    {
+        $sup = $this->userWithRole('supervisor');
+        $active = $this->userWithRole('seller', ['supervisor_id' => $sup->id, 'is_active' => true]);
+        $inactive = $this->userWithRole('seller', ['supervisor_id' => $sup->id, 'is_active' => false]);
+        $otherSupSeller = $this->userWithRole('seller', ['supervisor_id' => $this->userWithRole('supervisor')->id, 'is_active' => true]);
+
+        $this->actingAs($sup, 'sanctum')
+            ->getJson('/api/users')
+            ->assertOk()
+            ->assertJsonPath('view', 'flat')
+            ->assertJsonFragment(['id' => $sup->id])
+            ->assertJsonFragment(['id' => $active->id])
+            ->assertJsonMissing(['id' => $inactive->id])
+            ->assertJsonMissing(['id' => $otherSupSeller->id]);
+    }
 }

@@ -37,7 +37,10 @@ class UserController extends Controller
         if ($authUser->isSupervisor()) {
             $query->where(function ($q) use ($authUser) {
                 $q->where('id', $authUser->id)
-                  ->orWhere('supervisor_id', $authUser->id);
+                  ->orWhere(function ($q2) use ($authUser) {
+                      $q2->where('supervisor_id', $authUser->id)
+                         ->where('is_active', true);
+                  });
             });
         } else {
             $query->where('role', 'seller');
