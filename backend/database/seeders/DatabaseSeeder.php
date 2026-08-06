@@ -13,8 +13,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@amffa.com.ar'],
+        $admin = $this->seedUser(
+            'admin@amffa.com.ar',
             [
                 'name' => 'Admin AMFFA',
                 'password' => Hash::make('Admin2026#'),
@@ -23,8 +23,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $supervisor1 = User::firstOrCreate(
-            ['email' => 'supervisor@amffa.com.ar'],
+        $supervisor1 = $this->seedUser(
+            'supervisor@amffa.com.ar',
             [
                 'name' => 'Anzelmo Ignacio',
                 'password' => Hash::make('Supervisor2026#'),
@@ -33,8 +33,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $supervisor2 = User::firstOrCreate(
-            ['email' => 'supervisor2@amffa.com.ar'],
+        $supervisor2 = $this->seedUser(
+            'supervisor2@amffa.com.ar',
             [
                 'name' => 'Ortiz Gladys',
                 'password' => Hash::make('Supervisor2026#'),
@@ -43,8 +43,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $supervisor3 = User::firstOrCreate(
-            ['email' => 'supervisor3@amffa.com.ar'],
+        $supervisor3 = $this->seedUser(
+            'supervisor3@amffa.com.ar',
             [
                 'name' => 'Detry Maria',
                 'password' => Hash::make('Supervisor2026#'),
@@ -97,5 +97,23 @@ class DatabaseSeeder extends Seeder
         if (Contact::count() === 0) {
             $this->call(DemoDataSeeder::class);
         }
+    }
+
+    /**
+     * Crea el usuario si no existe; si ya existe actualiza nombre/rol/activo
+     * pero NO pisa la contraseña (evita resetear logins en cada deploy).
+     */
+    private function seedUser(string $email, array $data): User
+    {
+        $user = User::firstOrCreate(['email' => $email], $data);
+
+        if (!$user->wasRecentlyCreated) {
+            $user->name = $data['name'] ?? $user->name;
+            $user->role = $data['role'] ?? $user->role;
+            $user->is_active = $data['is_active'] ?? $user->is_active;
+            $user->save();
+        }
+
+        return $user;
     }
 }
