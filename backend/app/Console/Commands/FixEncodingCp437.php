@@ -26,7 +26,10 @@ class FixEncodingCp437 extends Command
     private const TABLAS = [
         'users' => ['name'],
         'gecros_vendedores' => ['nombre'],
-        'contacts' => ['name', 'address', 'notes', 'custom_fields'],
+        'contacts' => ['name', 'address', 'notes', 'custom_fields', 'source'],
+        'localities' => ['name', 'partido'],
+        'pipeline_stages' => ['name'],
+        'ventas' => ['asesor', 'afiliado'],
     ];
 
     private const CLAVES = [
