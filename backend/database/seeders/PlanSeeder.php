@@ -135,13 +135,13 @@ class PlanSeeder extends Seeder
             'GO' => [
                 'description' => 'Plan GO (precio manual)',
                 'periods' => [
-                    '2026-08' => ['manual' => true, 'manual_price' => null],
+                    '2026-08' => ['manual' => true, 'manual_price' => 135900],
                 ],
             ],
             'GO PROMO' => [
                 'description' => 'Plan GO promocional (precio manual)',
                 'periods' => [
-                    '2026-08' => ['manual' => true, 'manual_price' => null],
+                    '2026-08' => ['manual' => true, 'manual_price' => 119900],
                 ],
             ],
         ];

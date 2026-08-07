@@ -47,6 +47,22 @@ const FECHA_NULA = '1900-01-01';
 
 class GecrosRepository {
   /**
+   * Verifica conectividad con SQL Server (SELECT 1).
+   * Lanza error si la base no es accesible.
+   */
+  async ping() {
+    let pool;
+    try {
+      pool = await sql.connect(config.db);
+      await pool.request().query('SELECT 1');
+    } finally {
+      if (pool) {
+        sql.close();
+      }
+    }
+  }
+
+  /**
    * Busca un afiliado por DNI (doc_id). Devuelve el grupo familiar completo
    * (mismo ben_gr_id) o null si el DNI no existe.
    */

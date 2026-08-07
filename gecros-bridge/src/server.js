@@ -8,6 +8,20 @@ const GecrosRepository = require('./gecros');
 const app = express();
 const repo = new GecrosRepository();
 
+// Liveness/readiness: público, no expone datos. Lo usa el HEALTHCHECK del
+// contenedor y el monitoreo; la autenticación aplica al resto de endpoints.
+app.get('/health', async (req, res) => {
+  let db = 'unknown';
+  try {
+    await repo.ping();
+    db = 'ok';
+  } catch (err) {
+    console.error('[gecros] health: DB no accesible:', err.message);
+    db = 'error';
+  }
+  res.json({ status: 'ok', db, uptime: Math.round(process.uptime()) });
+});
+
 const rateLimit = new Map();
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -34,10 +48,6 @@ app.use((req, res, next) => {
   }
 
   next();
-});
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
 });
 
 app.get('/afiliado', async (req, res) => {

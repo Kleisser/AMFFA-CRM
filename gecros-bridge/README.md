@@ -1,19 +1,23 @@
 # Puente GECROS (API de solo lectura)
 
-API mínima que expone SOLO la consulta de afiliados de la BBDD GECROS (SQL Server) hacia el CRM. Corre **dentro de la red AMFFA** y se publica con **Cloudflare Tunnel**: la conexión es saliente desde la red, no se abre ningún puerto, y la base de producción nunca queda expuesta.
+API mínima que expone SOLO la consulta de afiliados de la BBDD GECROS (SQL Server) hacia el CRM. Corre **fuera del hosting del CRM** (máquina en la red AMFFA, VPS o servicio tipo Render/Railway) y se publica por HTTPS: el CRM jamás ve la base de GECROS, solo consumen esta API.
 
 ```
-GECROS (SQL Server) ← SELECT (usuario read-only) ← [puente:3000] ← cloudflared ← HTTPS ← CRM (Railway)
+GECROS (SQL Server) ← SELECT (usuario read-only) ← [puente:3000] ← HTTPS ← CRM (Railway hoy, Neolo mañana)
 ```
+
+El CRM se conecta solo con `GECROS_BRIDGE_URL` + `GECROS_BRIDGE_KEY` (ver más abajo). Si mañana el puente deja de leer SQL y pasa a llamar un Web Service de WS_Activia, el CRM no cambia nada.
 
 ## Qué hace
 
-Un único endpoint útil, read-only:
+Endpoints read-only:
 
 ```
+GET /health                           → estado del puente + conectividad con la DB (público, sin API key)
 GET /afiliado?numero=12345678        → JSON con afiliado + grupo familiar + plan
 GET /altas-bajas?desde=2026-06-26&hasta=2026-07-25   → altas y bajas del período
-GET /health                          → estado del puente
+GET /vendedores                      → catálogo de vendedores de afiliación
+GET /venafi-por-dni                  → mapa DNI → venafi_id
 ```
 
 - Solo acepta DNI numérico (6-9 dígitos)
@@ -63,7 +67,7 @@ Respuesta del endpoint:
 }
 ```
 
-## Instalación (en la máquina de la red AMFFA)
+## Instalación (desarrollo local)
 
 Requiere Node.js 18+ (https://nodejs.org).
 
@@ -76,6 +80,51 @@ npm start
 ```
 
 Probar local: `curl "http://localhost:3000/afiliado?numero=12345678" -H "X-API-Key: TU_CLAVE"`
+
+## Deploy standalone (Docker)
+
+El puente es un servicio independiente del CRM. Hay una imagen lista en `gecros-bridge/Dockerfile` (Node 20-alpine, `npm ci`, HEALTHCHECK contra `/health`).
+
+### Opción A — Servidor propio / VPS de AMFFA (recomendado)
+
+El requisito clave: **el host del puente debe poder alcanzar el SQL Server de GECROS** (red AMFFA, VPN/WireGuard o túnel IT). Por eso lo natural es una máquina dentro de la red AMFFA o un VPS con VPN a esa red.
+
+```bash
+cd gecros-bridge
+docker build -t gecros-bridge .
+docker run -d --name gecros-bridge --restart unless-stopped -p 3000:3000 \
+  -e BRIDGE_API_KEY=<openssl rand -hex 32> \
+  -e DB_SERVER=127.0.0.1 \
+  -e DB_PORT=1433 \
+  -e DB_DATABASE=GECROS \
+  -e DB_USER=crm_bridge \
+  -e DB_PASSWORD=<password_read_only> \
+  -e DB_ENCRYPT=false \
+  gecros-bridge
+```
+
+Chequear: `curl http://localhost:3000/health` → `{"status":"ok","db":"ok"}`.
+
+Exponerlo con **Cloudflare Tunnel** (conexión saliente, no se abre puerto en el firewall):
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create crm-bridge
+# config.yml → hostname: gecros.amffa.com.ar → service: http://localhost:3000
+cloudflared tunnel route dns crm-bridge gecros.amffa.com.ar
+cloudflared tunnel run crm-bridge
+```
+
+### Opción B — Render/Railway (cloud)
+
+1. Subir el repo a GitHub (ya está) y crear un servicio desde el `Dockerfile` de `gecros-bridge`.
+2. Variables de entorno: `BRIDGE_API_KEY`, `DB_SERVER`, `DB_PORT`, `DB_DATABASE`, `DB_USER`, `DB_PASSWORD`, `DB_ENCRYPT`.
+3. OJO con la conectividad: el SQL de GECROS debe ser alcanzable desde la nube (VPN/WireGuard al SQL, o tunnel reverso del SQL hacia un server intermedio). Si no, esta opción no aplica y va la A.
+4. En Render los planes gratuitos duermen tras inactividad: usar plan pagado o la opción A.
+
+### Opción C — Solo desarrollo (compose actual)
+
+En `docker-compose.yml` del repo el puente sigue corriendo dentro del contenedor `node` (puerto 3000 interno). No tocar: es solo para desarrollo local.
 
 ## Crear el usuario SQL de solo lectura
 
@@ -91,32 +140,7 @@ GRANT SELECT ON dbo.planes TO crm_bridge;
 DENY INSERT, UPDATE, DELETE, ALTER ON SCHEMA::dbo TO crm_bridge;
 ```
 
-## Publicar con Cloudflare Tunnel
-
-1. Instalar cloudflared (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
-2. Login y crear túnel:
-   ```bash
-   cloudflared tunnel login
-   cloudflared tunnel create crm-bridge
-   ```
-3. Configurar `~/.cloudflared/config.yml`:
-   ```yaml
-   tunnel: crm-bridge
-   credentials-file: C:\Users\TU_USUARIO\.cloudflared\<id-del-tunel>.json
-
-   ingress:
-     - hostname: gecros.amffa.com.ar   # o el subdominio que uses
-       service: http://localhost:3000
-     - service: http_status:404
-   ```
-4. DNS (CNAME al túnel) y lanzar:
-   ```bash
-   cloudflared tunnel route dns crm-bridge gecros.amffa.com.ar
-   cloudflared tunnel run crm-bridge
-   ```
-5. (Recomendado) Activar **Cloudflare Access** sobre ese hostname para exigir login corporativo además de la API key.
-
-## Configurar el CRM
+## Configurar el CRM (Railway hoy, Neolo mañana)
 
 En Railway → Variables de entorno del backend:
 
@@ -132,6 +156,8 @@ Pasos desde el dashboard de Railway:
 4. (Opcional, recomendado) Activar **Cloudflare Access** con un Service Token sobre el hostname del túnel: solo el backend (que envía el header `CF-Access-Client-Id/Secret`... si se usa Access) o la API key `X-API-Key` permiten pasar. Al menos mantener la API key larga y aleatoria.
 
 > El login read-only `crm_bridge` en el SQL Server real lo crea el equipo de IT con el script `crear_login_crm_bridge.sql` (SELECT únicamente sobre las 4 tablas que consulta el puente). Hasta entonces el puente usa una cuenta con más permisos: reemplazar en `gecros-bridge/.env` `DB_USER`/`DB_PASSWORD` apenas esté creado.
+
+> **Migración a Neolo**: el CRM deja de correr en Railway y pasa a Neolo; el puente NO cambia. Solo se copian `GECROS_BRIDGE_URL` y `GECROS_BRIDGE_KEY` a las variables de entorno del nuevo hosting. El puente sigue fuera del hosting (opción A o B), así Neolo nunca ve la base de GECROS.
 
 ## Probar en local (simulación completa)
 
@@ -163,8 +189,8 @@ El script `simulacion/gecros_local.sql` incluye los mismos permisos de solo lect
 
 ## Importante (seguridad)
 
-- El puente NO expone tablas ni permite escritura: solo `GET /afiliado`
-- La BBDD solo es alcanzable desde la máquina del puente
+- El puente NO expone tablas ni permite escritura: solo GET de negocio (`/afiliado`, `/altas-bajas`, `/vendedores`, `/venafi-por-dni`) y `/health` público
+- La BBDD solo es alcanzable desde la máquina del puente (VPS propio con VPN/túnel IT, o máquina en la red AMFFA)
 - La API key del puente y la del CRM deben ser largas y aleatorias (`openssl rand -hex 32`)
 - No commitear el `.env` del puente
 - Verificar los valores reales de `dbo.planes.plan_nombre` y mapearlos a los planes del CRM (START, BALANCE, PLATA, ORO, SENIOR, FAMILY, FAMILY PROMO, GO) en `src/gecros.js`
